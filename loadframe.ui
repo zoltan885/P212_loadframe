@@ -55,13 +55,16 @@
          </property>
          <layout class="QFormLayout" name="formLayout">
           <item row="1" column="1">
-           <widget class="QComboBox" name="comboBox"/>
+           <widget class="QComboBox" name="comboBox_crossheadMotor"/>
           </item>
           <item row="5" column="1">
-           <widget class="QComboBox" name="comboBox_2"/>
+           <widget class="QComboBox" name="comboBox_loadcellVoltage"/>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="lineEdit">
+           <widget class="QLineEdit" name="lineEdit_crossheadMotor">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="sizePolicy">
              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -71,7 +74,11 @@
            </widget>
           </item>
           <item row="6" column="1">
-           <widget class="QLineEdit" name="lineEdit_2"/>
+           <widget class="QLineEdit" name="lineEdit_loadcellVoltage">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+           </widget>
           </item>
           <item row="1" column="0">
            <widget class="QLabel" name="label_3">
@@ -113,7 +120,7 @@
            </widget>
           </item>
           <item row="11" column="1">
-           <widget class="QComboBox" name="comboBox_3">
+           <widget class="QComboBox" name="comboBox_loadcell">
             <item>
              <property name="text">
               <string>1 kN</string>
@@ -134,7 +141,7 @@
            </widget>
           </item>
           <item row="16" column="1">
-           <widget class="QPushButton" name="pushButton">
+           <widget class="QPushButton" name="pushButton_zeroVoltageCalibration">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -147,7 +154,7 @@
            </widget>
           </item>
           <item row="17" column="1">
-           <widget class="QLabel" name="label_7">
+           <widget class="QLabel" name="label_conversionEq">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -187,7 +194,7 @@
            </spacer>
           </item>
           <item row="8" column="1">
-           <widget class="QPushButton" name="pushButton_2">
+           <widget class="QPushButton" name="pushButton_connectToDevices">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Try to connect to the above devices.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
@@ -210,7 +217,7 @@
            </spacer>
           </item>
           <item row="9" column="1">
-           <widget class="QLabel" name="label_8">
+           <widget class="QLabel" name="label_connectionStatus">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
               <horstretch>0</horstretch>
@@ -263,7 +270,7 @@
            </widget>
           </item>
           <item row="18" column="1">
-           <widget class="QComboBox" name="comboBox_4">
+           <widget class="QComboBox" name="comboBox_positiveDirection">
             <item>
              <property name="text">
               <string>Tension</string>
@@ -300,7 +307,7 @@
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QDoubleSpinBox" name="doubleSpinBox_2">
+           <widget class="QDoubleSpinBox" name="doubleSpinBox_width">
             <property name="suffix">
              <string> mm</string>
             </property>
@@ -315,7 +322,7 @@
             </property>
            </widget>
           </item>
-          <item row="0" column="2">
+          <item row="0" column="3">
            <spacer name="horizontalSpacer">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
@@ -336,7 +343,7 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QDoubleSpinBox" name="doubleSpinBox">
+           <widget class="QDoubleSpinBox" name="doubleSpinBox_thickness">
             <property name="minimumSize">
              <size>
               <width>100</width>
@@ -358,7 +365,7 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QDoubleSpinBox" name="doubleSpinBox_3">
+           <widget class="QDoubleSpinBox" name="doubleSpinBox_gaugeLength">
             <property name="suffix">
              <string> mm</string>
             </property>
@@ -396,9 +403,30 @@
            </widget>
           </item>
           <item row="3" column="0">
-           <widget class="QPushButton" name="pushButton_5">
+           <widget class="QPushButton" name="pushButton_updateGeometry">
             <property name="text">
              <string>Update sample geometry</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_thicknessCurrent">
+            <property name="text">
+             <string>current value</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QLabel" name="label_widthCurrent">
+            <property name="text">
+             <string>current value</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLabel" name="label_gaugeCurrent">
+            <property name="text">
+             <string>current value</string>
             </property>
            </widget>
           </item>
@@ -412,7 +440,7 @@
          </property>
          <layout class="QGridLayout" name="gridLayout_2">
           <item row="3" column="1">
-           <widget class="QLabel" name="label_15">
+           <widget class="QLabel" name="label_logStatus">
             <property name="font">
              <font>
               <pointsize>14</pointsize>
@@ -440,7 +468,7 @@
            </spacer>
           </item>
           <item row="4" column="1">
-           <widget class="QPushButton" name="pushButton_3">
+           <widget class="QPushButton" name="pushButton_startNewLog">
             <property name="enabled">
              <bool>false</bool>
             </property>
@@ -464,7 +492,7 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QLineEdit" name="lineEdit_3">
+           <widget class="QLineEdit" name="lineEdit_logfile">
             <property name="sizePolicy">
              <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -509,7 +537,7 @@
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="QLineEdit" name="lineEdit_4">
+           <widget class="QLineEdit" name="lineEdit_sampleName">
             <property name="maxLength">
              <number>65</number>
             </property>
@@ -519,7 +547,7 @@
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="lineEdit_5">
+           <widget class="QLineEdit" name="lineEdit_sampleDescription">
             <property name="placeholderText">
              <string>DESCRIPTION</string>
             </property>
@@ -572,7 +600,7 @@
               </widget>
              </item>
              <item row="3" column="1">
-              <widget class="QDoubleSpinBox" name="doubleSpinBox_4">
+              <widget class="QDoubleSpinBox" name="doubleSpinBox_crossheadSpeed">
                <property name="decimals">
                 <number>1</number>
                </property>
@@ -592,7 +620,7 @@
               </widget>
              </item>
              <item row="2" column="1">
-              <widget class="QDoubleSpinBox" name="doubleSpinBox_5">
+              <widget class="QDoubleSpinBox" name="doubleSpinBox_crossheadMoveToPosition">
                <property name="decimals">
                 <number>1</number>
                </property>
@@ -618,7 +646,7 @@
               </widget>
              </item>
              <item row="0" column="1">
-              <widget class="QLCDNumber" name="lcdNumber">
+              <widget class="QLCDNumber" name="lcdNumber_crossheadPosition">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                  <horstretch>0</horstretch>
@@ -653,7 +681,7 @@
               </widget>
              </item>
              <item row="2" column="2">
-              <widget class="QPushButton" name="pushButton_moveCrosshead">
+              <widget class="QPushButton" name="pushButton_corssheadMove">
                <property name="enabled">
                 <bool>false</bool>
                </property>
@@ -726,7 +754,7 @@
               </widget>
              </item>
              <item row="2" column="1">
-              <widget class="QDoubleSpinBox" name="doubleSpinBox_6">
+              <widget class="QDoubleSpinBox" name="doubleSpinBox_jogAmount">
                <property name="sizePolicy">
                 <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                  <horstretch>0</horstretch>
@@ -774,7 +802,7 @@
          </property>
          <layout class="QGridLayout" name="gridLayout_5">
           <item row="0" column="1">
-           <widget class="QLCDNumber" name="lcdNumber_3">
+           <widget class="QLCDNumber" name="lcdNumber_loadcellVoltage">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -818,22 +846,6 @@
           <string>Sample</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
-          <item row="0" column="1">
-           <widget class="QLCDNumber" name="lcdNumber_2">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>50</height>
-             </size>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="0">
            <widget class="QLabel" name="label_21">
             <property name="text">
@@ -848,15 +860,8 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_25">
-            <property name="text">
-             <string>Stress</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QLCDNumber" name="lcdNumber_4">
+          <item row="0" column="1">
+           <widget class="QLCDNumber" name="lcdNumber_sampleForce">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -878,6 +883,59 @@
             </property>
            </widget>
           </item>
+          <item row="1" column="1">
+           <widget class="QLCDNumber" name="lcdNumber_sampleStress">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_25">
+            <property name="text">
+             <string>Stress</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_33">
+            <property name="text">
+             <string>Strain</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLCDNumber" name="lcdNumber_sampleStrain">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QLabel" name="label_34">
+            <property name="text">
+             <string>%</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
        </item>
@@ -894,14 +952,14 @@
     <widget class="QWidget" name="widget" native="true">
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
-       <widget class="QLabel" name="label_2">
+       <widget class="QLabel" name="label_statusLeft">
         <property name="text">
          <string>TextLabel</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="label_statusRight">
         <property name="text">
          <string>TextLabel</string>
         </property>
@@ -920,7 +978,7 @@
   <connection>
    <sender>checkBox_crossheadEnableMove</sender>
    <signal>clicked(bool)</signal>
-   <receiver>pushButton_moveCrosshead</receiver>
+   <receiver>pushButton_corssheadMove</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
