@@ -29,7 +29,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="configuration">
       <attribute name="title">
@@ -55,10 +55,24 @@
          </property>
          <layout class="QFormLayout" name="formLayout">
           <item row="1" column="1">
-           <widget class="QComboBox" name="comboBox_crossheadMotor"/>
+           <widget class="QComboBox" name="comboBox_crossheadMotor">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
           </item>
           <item row="5" column="1">
-           <widget class="QComboBox" name="comboBox_loadcellVoltage"/>
+           <widget class="QComboBox" name="comboBox_loadcellVoltage">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
           </item>
           <item row="2" column="1">
            <widget class="QLineEdit" name="lineEdit_crossheadMotor">
@@ -140,23 +154,10 @@
             </property>
            </widget>
           </item>
-          <item row="16" column="1">
-           <widget class="QPushButton" name="pushButton_zeroVoltageCalibration">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Calibrate the voltage offset.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string>Calibrate</string>
-            </property>
-           </widget>
-          </item>
           <item row="17" column="1">
            <widget class="QLabel" name="label_conversionEq">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -195,6 +196,12 @@
           </item>
           <item row="8" column="1">
            <widget class="QPushButton" name="pushButton_connectToDevices">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Try to connect to the above devices.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
@@ -219,7 +226,7 @@
           <item row="9" column="1">
            <widget class="QLabel" name="label_connectionStatus">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+             <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -282,6 +289,9 @@
              </property>
             </item>
            </widget>
+          </item>
+          <item row="16" column="1">
+           <widget class="QLineEdit" name="lineEdit_zeroVoltageCalibration"/>
           </item>
          </layout>
         </widget>
@@ -404,6 +414,12 @@
           </item>
           <item row="5" column="0">
            <widget class="QPushButton" name="pushButton_updateSample">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
              <string>Update</string>
             </property>
@@ -565,6 +581,27 @@
           </item>
           <item row="1" column="1">
            <widget class="QLineEdit" name="lineEdit"/>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Timestamp format</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="comboBox">
+            <item>
+             <property name="text">
+              <string>unix</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>iso</string>
+             </property>
+            </item>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -821,6 +858,20 @@
           <string>Loadcell</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_5">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_23">
+            <property name="text">
+             <string>Voltage</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="label_24">
+            <property name="text">
+             <string>V</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="1">
            <widget class="QLCDNumber" name="lcdNumber_loadcellVoltage">
             <property name="sizePolicy">
@@ -834,20 +885,6 @@
               <width>0</width>
               <height>50</height>
              </size>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QLabel" name="label_24">
-            <property name="text">
-             <string>V</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_23">
-            <property name="text">
-             <string>Voltage</string>
             </property>
            </widget>
           </item>
@@ -866,8 +903,21 @@
           <string>Sample</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_4">
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_33">
+            <property name="text">
+             <string>Strain</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="0">
            <widget class="QLabel" name="label_21">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
              <string>Force</string>
             </property>
@@ -875,35 +925,25 @@
           </item>
           <item row="0" column="2">
            <widget class="QLabel" name="label_22">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
              <string>N</string>
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QLCDNumber" name="lcdNumber_sampleForce">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>50</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QLabel" name="label_26">
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_25">
             <property name="text">
-             <string>MPa</string>
+             <string>Stress</string>
             </property>
            </widget>
           </item>
-          <item row="1" column="1">
+          <item row="2" column="1">
            <widget class="QLCDNumber" name="lcdNumber_sampleStress">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -919,21 +959,37 @@
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_25">
+          <item row="3" column="2">
+           <widget class="QLabel" name="label_34">
             <property name="text">
-             <string>Stress</string>
+             <string>%</string>
             </property>
            </widget>
           </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_33">
-            <property name="text">
-             <string>Strain</string>
+          <item row="0" column="1">
+           <widget class="QLCDNumber" name="lcdNumber_sampleForce">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+              <horstretch>2</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
             </property>
            </widget>
           </item>
-          <item row="2" column="1">
+          <item row="2" column="2">
+           <widget class="QLabel" name="label_26">
+            <property name="text">
+             <string>MPa</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
            <widget class="QLCDNumber" name="lcdNumber_sampleStrain">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -949,10 +1005,19 @@
             </property>
            </widget>
           </item>
-          <item row="2" column="2">
-           <widget class="QLabel" name="label_34">
+          <item row="0" column="3">
+           <widget class="QPushButton" name="pushButton_zeroVoltageCalibration">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="text">
-             <string>%</string>
+             <string>Calibrate (zero force)</string>
             </property>
            </widget>
           </item>

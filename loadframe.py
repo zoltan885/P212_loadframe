@@ -13,7 +13,7 @@ import datetime
 import logging
 logFormatter = logging.Formatter("%(asctime)-25.25s %(threadName)-12.12s %(name)-25.24s %(levelname)-10.10s %(message)s")
 rootLogger = logging.getLogger()
-rootLogger.setLevel(logging.DEBUG)
+rootLogger.setLevel(logging.INFO)
 #logging.getLogger().setLevel(logging.DEBUG)
 fileHandler = logging.FileHandler(os.path.join(os.getcwd(), 'log.log'))
 fileHandler.setFormatter(logFormatter)
@@ -52,28 +52,36 @@ from PyQt5.QtWidgets import (
     )
 
 
+import subprocess, shlex
 TEST = True
+if TEST:
+    logging.info('Starting test Tango server')
+    testTangoServer = subprocess.Popen(shlex.split('./testserver1.py clock -dlist test/test/clock -nodb -host hasmhegedues -port 10000'))
+    logging.info(f'Test Tango server started. PID: {testTangoServer.pid}')
+    # if not stopped properly it reserves the port
+    # sudo lsof -i :10000
+
 TANGO = False
 HU = False
 try:
     import PyTango as PT
     TANGO = True
 except ImportError as e:
-    logging.error(f"{e}")
+    logging.warning(f"{e}")
 
 try:
     import HasyUtils as HU
     HU = True
 except ImportError as e:
-    logging.error(f"{e}")
+    logging.warning(f"{e}")
 
 
 def _getMovableSpockNames():
     '''
        gets the stepping_motor devices from the online.xml together with the host name
     '''
-    if not TANGO:
-        dct = {'crosshead': 'hasep21eh3:10000/p21/eh3_u4.15', 'dummy': 'hasep21eh3:10000/p21/eh3_u4.99'}
+    if not HU:
+        dct = {'crosshead': 'hasep21eh3:10000/p21/motor/eh3_u4.15', 'dummy': 'hasep21eh3:10000/p21/motor/eh3_u4.99'}
         return dct
     names=dict()
     try:
@@ -88,30 +96,38 @@ def _getMovableSpockNames():
         pass
     return names
 
+_voltageAttrList = ['hasep21eh3:10000/p21/keithley2602b/eh3.01/MeasVoltage',
+                    'hasep21eh3:10000/p21/keithley2602b/eh3.02/MeasVoltage',
+    ]
 
-class _voltageDevices():
-    def __init__(self):
-        self.dev = []
-        self.dev.append(('hasep21eh3:10000/p21/keithley2602/eh3.1', 'MeasureVoltage'))
-        self.dev.append(('hasep21eh3:10000/p21/keithley2602/eh3.2', 'MeasureVoltage'))
-
-    def devices(self):
-        return self.dev
-
-    @property
-    def _attrForm(self):
-        return [str(a)+'/'+str(b) for a,b in self.dev]
-
+if TEST:
+    _voltageAttrList = ['tango://hasmhegedues:10000/test/test/clock/voltage#dbase=no',
+                        ]
 
 class Loadcell():
-    def __init__(self, typ, tangoAttr, positiveDirection='Tension'):
-        self.updateType(typ)
+    def __init__(self, typ='1 kN', attr=None, positiveDirection='Tension'):
+        if typ is not None:
+            self.updateType(typ)
+        if attr is not None:
+            self.updateVoltageAttr(attr)
         self.cell1mul = -193.913
         self.cell5mul = -1017.78
         self.cell1zeroVoltage = 6.96
         self.cell5zeroVoltage = 5.99
-        self.voltage = tangoAttr
+        self._currentZeroVoltage = None
         self.positiveDirection = positiveDirection
+
+    def updateVoltageAttr(self, attr):
+        if TEST:
+            self.attrProxy = PT.AttributeProxy('tango://hasmhegedues:10000/test/test/clock/voltage#dbase=no')
+        try:
+            self.attrProxy = PT.AttributeProxy(attr)
+        except Exception as e:
+            raise e
+
+    @property
+    def voltage(self):
+        return self.attrProxy.read().value
 
     def updateType(self, typ):
         assert typ in ['1 kN', '5 kN'], 'No such loadcell'
@@ -141,11 +157,16 @@ class Loadcell():
         if TEST:
             val = 16.8
         else:
-            val = self.voltage.read().value
+            val = self.voltage
         if self.type == '1 kN':
             self.cell1zeroVoltage = val
         elif self.type == '5 kN':
             self.cell5zeroVoltage = val
+        self._currentZeroVoltage = val
+
+    @property
+    def zeroVoltage(self):
+        return self._currentZeroVoltage
 
     @property
     def force(self):
@@ -153,6 +174,10 @@ class Loadcell():
             return (self.voltage.read().value-self.cell1zeroVoltage) * self.cell1mul
         elif self.type == '5 kN':
             return (self.voltage.read().value-self.cell5zeroVoltage) * self.cell5mul
+
+
+
+
 
 
 class Sample():
@@ -298,6 +323,29 @@ class DataLogger():
 
 
 
+class DevicePoller(QObject):
+    voltage = pyqtSignal(float)
+    position = pyqtSignal(float)
+    speed = pyqtSignal(float)
+    fastPolling = 0.1
+    slowPolling = 5
+
+    def __init__(self, motDevProxy, loadCell):
+        super(DevicePoller, self).__init__()
+        self.motDevProxy = motDevProxy
+        self.loadCell = loadCell
+
+    def run(self):
+        logging.info('Device poller started')
+        t0 = time.time()
+        while True:
+            self.voltage.emit(self.loadCell.voltage)
+            logging.info(self.loadCell.voltage)
+            self.position.emit(self.motDevProxy.position)
+            if time.time()-t0 > self.slowPolling:
+                sp = self.motDevProxy.slewRate / self.motDevProxy.conversion
+                self.speed.emit(sp)
+            time.sleep(self.fastPolling)
 
 
 
@@ -311,19 +359,18 @@ class MainWidget(QtWidgets.QWidget):
         # Configuration
         #
         self.crossheadMotorDev = None
-        self.loadcellVoltageDev = None
         # add voltage devices:
-        self.comboBox_loadcellVoltage.addItems(_voltageDevices()._attrForm)
+        self.comboBox_loadcellVoltage.addItems(_voltageAttrList)
         # add movable devices:
-        self.comboBox_crossheadMotor.addItems([f'{k}:  {v}' for k,v in _getMovableSpockNames().items()])
+        self.comboBox_crossheadMotor.addItems([f'{k}->  {v}' for k,v in _getMovableSpockNames().items()])
         # define loadCell
-        self.loadCell = Loadcell(self.comboBox_loadcell.currentText(), 'attr')
+        self.loadCell = Loadcell()
         self.label_conversionEq.setText(self.loadCell.getEq())
         # signals
         self.pushButton_connectToDevices.clicked.connect(self._connectToDevices)
         self.comboBox_loadcell.currentIndexChanged.connect(self.updateConversionEq)
         self.pushButton_zeroVoltageCalibration.clicked.connect(self.calibrateZeroVoltage)
-        self.comboBox_positiveDirection.currentIndexChanged.connect(self.updateTensionCompression)
+        self.comboBox_positiveDirection.currentIndexChanged.connect(self.updateTensionCompressionSign)
 
         #
         # Sample
@@ -333,6 +380,14 @@ class MainWidget(QtWidgets.QWidget):
 
         self.lineEdit_logfile.setText(os.path.join(os.getcwd(), 'log.log'))
 
+        #
+        # Polling thread
+        #
+        self.thread = QThread()
+        self.pool = QThreadPool.globalInstance()
+        self.measValues = {'voltage': None, 'position': None, 'speed': None}
+
+
 
 
     def _connectToDevices(self):
@@ -340,8 +395,8 @@ class MainWidget(QtWidgets.QWidget):
         lVD = self.comboBox_loadcellVoltage.currentText()
         logging.info(f"cMD: {cMD}")
         logging.info(f"lVD: {lVD}")
-        if ':' in cMD:
-            cMD = cMD.split(':')[2].strip()
+        if '->' in cMD:
+            cMD = cMD.split('->')[1].strip()
         if not TANGO:
             self.label_connectionStatus.setText('TEST CONNECTION ESTABLISHED')
             self.pushButton_zeroVoltageCalibration.setEnabled(True)
@@ -351,24 +406,33 @@ class MainWidget(QtWidgets.QWidget):
         except:
             logging.error(f"Could not connect to device {cMD}")
         try:
-            self.loadcellVoltageDev = PT.DeviceProxy(lVD)
+            self.loadCell.updateVoltageAttr(lVD)
         except:
             logging.error(f"Could not connect to device {lVD}")
-        if self.crossheadMotorDev is not None and self.loadcellVoltageDev is not None:
+        if self.crossheadMotorDev is not None and self.loadCell.attrProxy is not None:
             self.label_connectionStatus.setText('CONNECTION ESTABLISHED')
         self.pushButton_zeroVoltageCalibration.setEnabled(True)
+
+        self.PollingThread = DevicePoller(self.crossheadMotorDev, self.loadCell)
+        self.PollingThread.moveToThread(self.thread)
+        self.thread.start()
+
 
     def updateConversionEq(self):
         self.loadCell.updateType(self.comboBox_loadcell.currentText())
         self.label_conversionEq.setText(self.loadCell.getEq())
 
+
     def calibrateZeroVoltage(self):
         self.loadCell.calibrate()
         self.updateConversionEq()
+        self.lineEdit_zeroVoltageCalibration.setText(f'{self.loadCell.zeroVoltage} V')
 
-    def updateTensionCompression(self):
+
+    def updateTensionCompressionSign(self):
         self.loadCell.updateDirection(self.comboBox_positiveDirection.currentText())
         self.updateConversionEq()
+
 
     def updateSample(self):
         th = self.doubleSpinBox_thickness.value()
@@ -390,12 +454,17 @@ class MainWidget(QtWidgets.QWidget):
 
 
 
+def exitHandler():
+    if TEST:
+        logging.info('Stopping test Tango server')
+        testTangoServer.terminate()
 
 
 
 
 def mainGUI():
     app = QtWidgets.QApplication(sys.argv)
+    app.aboutToQuit.connect(exitHandler)
     main = MainWidget()
     main.show()
     sys.exit(app.exec_())
