@@ -54,10 +54,16 @@ from PyQt5.QtWidgets import (
 
 TEST = True
 TANGO = False
+HU = False
 try:
     import PyTango as PT
-    import HasyUtils as HU
     TANGO = True
+except ImportError as e:
+    logging.error(f"{e}")
+
+try:
+    import HasyUtils as HU
+    HU = True
 except ImportError as e:
     logging.error(f"{e}")
 
@@ -67,8 +73,8 @@ def _getMovableSpockNames():
        gets the stepping_motor devices from the online.xml together with the host name
     '''
     if not TANGO:
-        lst = ['a', 'b']
-        return lst
+        dct = {'crosshead': 'hasep21eh3:10000/p21/eh3_u4.15', 'dummy': 'hasep21eh3:10000/p21/eh3_u4.99'}
+        return dct
     names=dict()
     try:
         for rec in HU.getOnlineXML():
@@ -88,9 +94,12 @@ class _voltageDevices():
         self.dev = []
         self.dev.append(('hasep21eh3:10000/p21/keithley2602/eh3.1', 'MeasureVoltage'))
         self.dev.append(('hasep21eh3:10000/p21/keithley2602/eh3.2', 'MeasureVoltage'))
+
     def devices(self):
         return self.dev
-    def printed(self):
+
+    @property
+    def _attrForm(self):
         return [str(a)+'/'+str(b) for a,b in self.dev]
 
 
@@ -304,9 +313,9 @@ class MainWidget(QtWidgets.QWidget):
         self.crossheadMotorDev = None
         self.loadcellVoltageDev = None
         # add voltage devices:
-        self.comboBox_loadcellVoltage.addItems(_voltageDevices().printed())
+        self.comboBox_loadcellVoltage.addItems(_voltageDevices()._attrForm)
         # add movable devices:
-        self.comboBox_crossheadMotor.addItems(_getMovableSpockNames())
+        self.comboBox_crossheadMotor.addItems([f'{k}:  {v}' for k,v in _getMovableSpockNames().items()])
         # define loadCell
         self.loadCell = Loadcell(self.comboBox_loadcell.currentText(), 'attr')
         self.label_conversionEq.setText(self.loadCell.getEq())
@@ -331,6 +340,8 @@ class MainWidget(QtWidgets.QWidget):
         lVD = self.comboBox_loadcellVoltage.currentText()
         logging.info(f"cMD: {cMD}")
         logging.info(f"lVD: {lVD}")
+        if ':' in cMD:
+            cMD = cMD.split(':')[2].strip()
         if not TANGO:
             self.label_connectionStatus.setText('TEST CONNECTION ESTABLISHED')
             self.pushButton_zeroVoltageCalibration.setEnabled(True)
@@ -338,11 +349,11 @@ class MainWidget(QtWidgets.QWidget):
         try:
             self.crossheadMotorDev = PT.DeviceProxy(cMD)
         except:
-            logging.error(f"Could not instantiate device {cMD}")
+            logging.error(f"Could not connect to device {cMD}")
         try:
             self.loadcellVoltageDev = PT.DeviceProxy(lVD)
         except:
-            logging.error(f"Could not instantiate device {lVD}")
+            logging.error(f"Could not connect to device {lVD}")
         if self.crossheadMotorDev is not None and self.loadcellVoltageDev is not None:
             self.label_connectionStatus.setText('CONNECTION ESTABLISHED')
         self.pushButton_zeroVoltageCalibration.setEnabled(True)
