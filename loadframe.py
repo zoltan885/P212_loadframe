@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/hegedues/miniforge3/envs/pyfai/bin/python
 # -*- coding: utf-8 -*-
 """
 Created on Mon Oct  9 20:42:04 2023
@@ -8,6 +8,7 @@ Created on Mon Oct  9 20:42:04 2023
 
 import sys
 import os
+import psutil
 import time
 import datetime
 import logging
@@ -25,13 +26,13 @@ rootLogger.addHandler(consoleHandler)
 
 
 import glob
-from watchdog.observers import Observer
-from watchdog.events import LoggingEventHandler
-from watchdog.events import FileSystemEventHandler
-import watchdog.events
-import watchdog.observers
-import pyFAI, fabio
-from pyFAI import AzimuthalIntegrator
+# from watchdog.observers import Observer
+# from watchdog.events import LoggingEventHandler
+# from watchdog.events import FileSystemEventHandler
+# import watchdog.events
+# import watchdog.observers
+# import pyFAI, fabio
+# from pyFAI import AzimuthalIntegrator
 import multiprocessing
 from multiprocessing import Event, Process, Queue
 from threading import Thread
@@ -40,7 +41,7 @@ import queue
 
 
 from PyQt5 import QtWidgets, uic, QtGui
-from PyQt5.QtCore import QRunnable, Qt, QThreadPool, pyqtSignal, QThread, QObject, pyqtSlot
+from PyQt5.QtCore import QRunnable, Qt, QThreadPool, pyqtSignal, QThread, QObject, pyqtSlot, QTimer
 from PyQt5.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -56,13 +57,16 @@ import subprocess, shlex
 TEST = True
 if TEST:
     logging.info('Starting test Tango server')
-    testTangoServer = subprocess.Popen(shlex.split('./testserver1.py clock -dlist test/test/clock -nodb -host hasmhegedues -port 10000'))
+    testTangoServer = subprocess.Popen(shlex.split('./testserver1.py test1 -dlist p21/keithley2602b/eh3.01,p21/motor/eh3_u4.15 -nodb -host hasmhegedues -port 10000'))
     logging.info(f'Test Tango server started. PID: {testTangoServer.pid}')
+    testServerObserver = subprocess.Popen(['xterm', './testserverWatch.py'])
+    logging.info(f'Test Tango server observer started. PID: {testServerObserver.pid}')
+
     # if not stopped properly it reserves the port
     # sudo lsof -i :10000
 
 TANGO = False
-HU = False
+HUImported = False
 try:
     import PyTango as PT
     TANGO = True
@@ -71,7 +75,7 @@ except ImportError as e:
 
 try:
     import HasyUtils as HU
-    HU = True
+    HUImported = True
 except ImportError as e:
     logging.warning(f"{e}")
 
@@ -80,8 +84,11 @@ def _getMovableSpockNames():
     '''
        gets the stepping_motor devices from the online.xml together with the host name
     '''
-    if not HU:
+    if not HUImported and not TEST:
         dct = {'crosshead': 'hasep21eh3:10000/p21/motor/eh3_u4.15', 'dummy': 'hasep21eh3:10000/p21/motor/eh3_u4.99'}
+        return dct
+    if not HUImported and TEST:
+        dct = {'crosshead': 'tango://hasmhegedues:10000/p21/motor/eh3_u4.15#dbase=no'}
         return dct
     names=dict()
     try:
@@ -101,25 +108,26 @@ _voltageAttrList = ['hasep21eh3:10000/p21/keithley2602b/eh3.01/MeasVoltage',
     ]
 
 if TEST:
-    _voltageAttrList = ['tango://hasmhegedues:10000/test/test/clock/voltage#dbase=no',
+    _voltageAttrList = ['tango://hasmhegedues:10000/p21/keithley2602b/eh3.01/voltage#dbase=no',
                         ]
 
 class Loadcell():
     def __init__(self, typ='1 kN', attr=None, positiveDirection='Tension'):
-        if typ is not None:
-            self.updateType(typ)
-        if attr is not None:
-            self.updateVoltageAttr(attr)
         self.cell1mul = -193.913
         self.cell5mul = -1017.78
         self.cell1zeroVoltage = 6.96
         self.cell5zeroVoltage = 5.99
         self._currentZeroVoltage = None
         self.positiveDirection = positiveDirection
+        if typ is not None:
+            self.updateType(typ)
+        if attr is not None:
+            self.updateVoltageAttr(attr)
+
 
     def updateVoltageAttr(self, attr):
         if TEST:
-            self.attrProxy = PT.AttributeProxy('tango://hasmhegedues:10000/test/test/clock/voltage#dbase=no')
+            self.attrProxy = PT.AttributeProxy('tango://hasmhegedues:10000/p21/keithley2602b/eh3.01/voltage#dbase=no')
         try:
             self.attrProxy = PT.AttributeProxy(attr)
         except Exception as e:
@@ -132,6 +140,10 @@ class Loadcell():
     def updateType(self, typ):
         assert typ in ['1 kN', '5 kN'], 'No such loadcell'
         self.type = typ
+        if typ == '1 kN':
+            self._currentZeroVoltage = self.cell1zeroVoltage
+        elif typ == '5 kN':
+            self._currentZeroVoltage = self.cell5zeroVoltage
 
     def updateDirection(self, direction):
         assert direction in ['Tension', 'Compression'], 'Wrong tension-compression direction'
@@ -149,15 +161,16 @@ class Loadcell():
 
     def getEq(self):
         if self.type == '1 kN':
-            return 'F[N] = %.1f * (U[V]-%.3f)' % (self.cell1mul, self.cell1zeroVoltage)
+            if self.cell1zeroVoltage < 0:
+                return 'F[N] = %.1f * (U[V]+%.3f)' % (self.cell1mul, -1*self.cell1zeroVoltage)
+            else:
+                return 'F[N] = %.1f * (U[V]-%.3f)' % (self.cell1mul, self.cell1zeroVoltage)
         elif self.type == '5 kN':
+            if self.cell5zeroVoltage < 0:
+                return 'F[N] = %.1f * (U[V]+%.3f)' % (self.cell5mul, -1*self.cell5zeroVoltage)
             return 'F[N] = %.1f * (U[V]-%.3f)' % (self.cell5mul, self.cell5zeroVoltage)
 
-    def calibrate(self):
-        if TEST:
-            val = 16.8
-        else:
-            val = self.voltage
+    def calibrate(self, val):
         if self.type == '1 kN':
             self.cell1zeroVoltage = val
         elif self.type == '5 kN':
@@ -168,12 +181,18 @@ class Loadcell():
     def zeroVoltage(self):
         return self._currentZeroVoltage
 
-    @property
-    def force(self):
+    # @property
+    # def force(self):
+    #     if self.type == '1 kN':
+    #         return (self.voltage.read().value-self.cell1zeroVoltage) * self.cell1mul
+    #     elif self.type == '5 kN':
+    #         return (self.voltage.read().value-self.cell5zeroVoltage) * self.cell5mul
+
+    def force2(self, voltage):
         if self.type == '1 kN':
-            return (self.voltage.read().value-self.cell1zeroVoltage) * self.cell1mul
+            return (voltage-self.cell1zeroVoltage) * self.cell1mul
         elif self.type == '5 kN':
-            return (self.voltage.read().value-self.cell5zeroVoltage) * self.cell5mul
+            return (voltage-self.cell5zeroVoltage) * self.cell5mul
 
 
 
@@ -243,7 +262,7 @@ class Sample():
             Current stress in MPa
 
         '''
-        return 1e6*forceN/self.crossection
+        return forceN/self.crossection
 
     def strain(self, displacementMM):
         '''
@@ -265,19 +284,27 @@ class Sample():
 
 
 class DataLogger():
+    validTimeformats = ['unix', 'iso', 'both']
     def __init__(self, timeformat=None):
         self._logfile = None
-        self._loggrace = 0.5
+        self._logGrace = 0.05
+        self._writeGrace = 0.5
         self._attrs = {}
-        self._timeformat = 'unix'
+        self._lastValues = {}
+        self._timeformat = 'both'
         if timeformat is not None:
-            self.timeformat = timeformat # this should already use the setter and check for possible options
+            self.timeformat = timeformat # already uses the setter to check for possible options
         self.startEv = Event()
         self.stopEv = Event()
         self.loggerThread = Thread(target=self.loggerThread, args=(),
                                    kwargs={'startEv': self.startEv,
                                            'stopEv':self.stopEv})
         self.loggerThread.start()
+        self.writerThread = Thread(target=self.writerThread, args=(),
+                                   kwargs={'startEv': self.startEv,
+                                           'stopEv':self.stopEv})
+        self.writerThread.start()
+
 
     @property
     def logfile(self):
@@ -289,6 +316,7 @@ class DataLogger():
         if os.path.exists(value):
             logging.warning('Logfile already existed. Appending.')
         self._logfile = value
+        logging.info(f'Data log set to {self.logfile}')
 
     @property
     def timeformat(self):
@@ -296,27 +324,85 @@ class DataLogger():
 
     @timeformat.setter
     def timeformat(self, value):
-        assert value in ['unix', 'iso'], 'Timeformat can only be unix or iso'
+        assert value in self.validTimeformats, 'Timeformat can only be unix or iso'
         self._timeformat = value
 
 
     def addLogAttr(self, name, attr):
-        self._attrs[name] = attr
+        '''
+        add attribute to logging
+        name: the display name of the attribute
+        attr: the full 'TangoPath' of the attribute
+        '''
+        try:
+            a = PT.AttributeProxy(attr)
+            self._attrs[name] = a
+            self._lastValues[name] = None
+            logging.info(f'Attribute {name} : {attr} added to logging')
+        except:
+            logging.error(f'Failed to add attribute {name} : {attr} logging')
+
+    def addCalculated(self, name, query_value):
+        pass
+
+
+    def _writeHeader(self):
+        with open(self.logfile, 'a') as log:
+            if self.timeformat == 'unix':
+                log.write("UnixTime ")
+            elif self.timeformat == 'iso':
+                log.write("ISOTime ")
+            elif self.timeformat == 'both':
+                log.write("ISOTime UnixTime ")
+            for k in self._attrs.keys():
+                log.write(f"{k} ")
+            log.write("\n")
+
+    # could be split into a logger (just getting the values) and a writer (writing the last into a file)
 
     def loggerThread(self, startEv=None, stopEv=None):
-        logging.warning('Waiting for start signal')
+        logging.warning('DataLogger is waiting for start signal')
         startEv.wait()
+        logging.info('DataLogger logging thread started')
         while not stopEv.is_set():
+            for k,v in self._attrs.items():
+                self._lastValues[k] = v.read().value
+            time.sleep(self._logGrace)
+        logging.info('DataLogger logging thread stopped')
+
+
+    def writerThread(self, startEv=None, stopEv=None):
+        logging.warning('DataLogger writer thread is waiting for start signal')
+        noLogAttrs = 0
+        startEv.wait()  # how to stop it here?
+        time.sleep(0.2) # grace period for loggerThread to fetch values
+        logging.info('DataLogger writer thread started')
+        while self.logfile is None:
+            if stopEv.is_set():
+                return
+            time.sleep(0.1)
+        logging.info(f'Logging to {self.logfile}')
+        lastLogfile = self.logfile
+        while not stopEv.is_set():
+            if noLogAttrs != len(self._attrs.keys()):  # update the attrs on the fly
+                self._writeHeader()
+                noLogAttrs = len(self._attrs.keys())
+            if lastLogfile != self.logfile:  # updata the logfile on the fly
+                self._writeHeader()
+                lastLogfile = self.logfile
             with open(self.logfile, 'a') as log:
                 if self.timeformat == 'unix':
-                    log.write(f"time.time() ")
+                    log.write(f"{time.time()} ")
                 elif self.timeformat == 'iso':
                     log.write(f"{datetime.datetime.now().isoformat()} ")
+                elif self.timeformat == 'both':
+                    log.write(f"{datetime.datetime.now().isoformat()} {time.time()} ")
                 for k,v in self._attrs.items():
-                    log.write(f"{v} ")
+                    log.write(f"{self._lastValues[k]} ")
                 log.write("\n")
             #logging.warning('Logged a line')
-            time.sleep(self._loggrace)
+            time.sleep(self._writeGrace)
+        logging.info('DataLogger writer thread stopped')
 
 
 
@@ -335,7 +421,7 @@ class DevicePoller(QObject):
         self.motDevProxy = motDevProxy
         self.loadCell = loadCell
 
-    def run(self):
+    def run(self):    # would be better to use QTimer
         logging.info('Device poller started')
         t0 = time.time()
         while True:
@@ -354,6 +440,16 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
         super(MainWidget, self).__init__(*args, **kwargs)
         uic.loadUi('loadframe.ui', self)
+
+        self.timerSlow=QTimer()
+        self.timerSlow.start(1000)
+        self.timerFast=QTimer()
+        self.timerFast.start(100)
+
+        # status label
+        self.timerSlow.timeout.connect(self.updateRStatusLabel)
+        self.timerFast.timeout.connect(self.updateLCDNums)
+
 
         #
         # Configuration
@@ -379,6 +475,16 @@ class MainWidget(QtWidgets.QWidget):
         self.pushButton_updateSample.clicked.connect(self.updateSample)
 
         self.lineEdit_logfile.setText(os.path.join(os.getcwd(), 'log.log'))
+        self.lineEdit_dataLogfile.setText(os.path.join(os.getcwd(), 'data.log'))
+
+        #
+        # Data logger
+        #
+        self.dataLogger = DataLogger(timeformat='both')
+        self.comboBox_timestamp.addItems(self.dataLogger.validTimeformats)
+        self.comboBox_timestamp.setCurrentIndex(2)
+        self.comboBox_timestamp.currentTextChanged.connect(self.updateLogTimeStampFormat)
+        self.pushButton_startNewLog.clicked.connect(self.restartLogging)
 
         #
         # Polling thread
@@ -386,6 +492,8 @@ class MainWidget(QtWidgets.QWidget):
         self.thread = QThread()
         self.pool = QThreadPool.globalInstance()
         self.measValues = {'voltage': None, 'position': None, 'speed': None}
+
+
 
 
 
@@ -403,30 +511,39 @@ class MainWidget(QtWidgets.QWidget):
             return
         try:
             self.crossheadMotorDev = PT.DeviceProxy(cMD)
+            if TEST:
+                self.dataLogger.addLogAttr('chp', cMD.rpartition("#")[0]+'/position'+'#'+cMD.rpartition("#")[2])
+            else:
+                self.dataLogger.addLogAttr('chp', cMD+'/position')
         except:
             logging.error(f"Could not connect to device {cMD}")
         try:
             self.loadCell.updateVoltageAttr(lVD)
+            self.dataLogger.addLogAttr('lcV', lVD)
         except:
             logging.error(f"Could not connect to device {lVD}")
         if self.crossheadMotorDev is not None and self.loadCell.attrProxy is not None:
             self.label_connectionStatus.setText('CONNECTION ESTABLISHED')
         self.pushButton_zeroVoltageCalibration.setEnabled(True)
+        self.dataLogger.startEv.set()
 
-        self.PollingThread = DevicePoller(self.crossheadMotorDev, self.loadCell)
-        self.PollingThread.moveToThread(self.thread)
-        self.thread.start()
+
+
+        #self.PollingThread = DevicePoller(self.crossheadMotorDev, self.loadCell)
+        #self.PollingThread.moveToThread(self.thread)
+        #self.thread.start()
 
 
     def updateConversionEq(self):
         self.loadCell.updateType(self.comboBox_loadcell.currentText())
         self.label_conversionEq.setText(self.loadCell.getEq())
+        self.lineEdit_zeroVoltageCalibration.setText(f'{self.loadCell.zeroVoltage:.3f} V')
 
 
     def calibrateZeroVoltage(self):
-        self.loadCell.calibrate()
+        self.loadCell.calibrate(self.dataLogger._lastValues['lcV'])
         self.updateConversionEq()
-        self.lineEdit_zeroVoltageCalibration.setText(f'{self.loadCell.zeroVoltage} V')
+        self.lineEdit_zeroVoltageCalibration.setText(f'{self.loadCell.zeroVoltage:.3f} V')
 
 
     def updateTensionCompressionSign(self):
@@ -446,6 +563,37 @@ class MainWidget(QtWidgets.QWidget):
         self.label_gaugeCurrent.setText(f"current value: {self.sample.gaugeLength:.2f} mm")
         self.sample.report()
 
+    def updateRStatusLabel(self):
+        self.label_statusRight.setText(f"PID: {os.getpid()}, MEM (current proc): {psutil.Process().memory_info().rss/1e6:.1f} MB, CPU (system): {psutil.cpu_percent():5.1f} %")
+
+
+    def updateLogTimeStampFormat(self):
+        self.dataLogger.timeformat = self.comboBox_timestamp.currentText()
+
+    def restartLogging(self):
+        self.dataLogger.logfile = self.lineEdit_dataLogfile.text()
+
+
+    def updateLCDNums(self):
+        try:
+            #logging.info(f"Updating LCD: {self.dataLogger._lastValues['chp']:.2f}")
+            pos = self.dataLogger._lastValues['chp']
+            self.lcdNumber_crossheadPosition.display(f"{pos:.2f}")
+            volt = self.dataLogger._lastValues['lcV']
+            self.lcdNumber_loadcellVoltage.display(f"{volt:.3f}")
+            force = self.loadCell.force2(volt)
+            self.lcdNumber_sampleForce.display(f"{force:.1f}")
+            stress = self.sample.stress(force)
+            self.lcdNumber_sampleStress.display(f"{stress:.1f}")
+        except:
+            pass
+
+    def exitHandler(self):
+        logging.info('exitHandler')
+        if hasattr(self, 'dataLogger'):
+            if not self.dataLogger.startEv.is_set():
+                self.dataLogger.startEv.set()
+            self.dataLogger.stopEv.set()
 
 
 
@@ -453,11 +601,13 @@ class MainWidget(QtWidgets.QWidget):
 
 
 
-
+# Exit handler for external
 def exitHandler():
     if TEST:
         logging.info('Stopping test Tango server')
         testTangoServer.terminate()
+        logging.info('Stopping test Tango observer')
+        testServerObserver.terminate()
 
 
 
@@ -466,6 +616,7 @@ def mainGUI():
     app = QtWidgets.QApplication(sys.argv)
     app.aboutToQuit.connect(exitHandler)
     main = MainWidget()
+    app.aboutToQuit.connect(main.exitHandler)
     main.show()
     sys.exit(app.exec_())
 
