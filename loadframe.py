@@ -201,11 +201,12 @@ class Loadcell():
     #     elif self.type == '5 kN':
     #         return (self.voltage.read().value-self.cell5zeroVoltage) * self.cell5mul
 
-    def force2(self, voltage):
+    @property
+    def force2(self):
         if self.type == '1 kN':
-            return (voltage-self.cell1zeroVoltage) * self.cell1mul
+            return (self.voltage-self.cell1zeroVoltage) * self.cell1mul
         elif self.type == '5 kN':
-            return (voltage-self.cell5zeroVoltage) * self.cell5mul
+            return (self.voltage-self.cell5zeroVoltage) * self.cell5mul
 
 
 
@@ -368,6 +369,7 @@ class DataLogger():
         self._writeGrace = 0.5
         self._attrs = {}
         self._classAttrs = {}
+        self._calculated = {}
         self._lastValues = {}
         self._timeformat = 'both'
         if timeformat is not None:
@@ -431,8 +433,16 @@ class DataLogger():
         logging.info(f'class {obj} attribute {attr} added to logging')
 
 
-    def addCalculated(self, name, query_value):
-        pass
+    def addCalculated(self, name, func, *args):  # TODO
+        '''
+        add calculated value to logging
+        name: the display name of the attribute
+        func: the function to use to calculate the value
+        args: arguments of the function
+        '''
+        self._calculated[name] = [func, args]
+        self._lastValues[name] = None
+        logging.info(f'calculated attribute {name} added to logging')
 
 
     def _writeHeader(self):
@@ -448,10 +458,13 @@ class DataLogger():
                 log.write(f"{k} ")
             for k in self._attrs.keys():
                 log.write(f"{k} ")
+            for k in self._calculated.keys():
+                log.write(f"{k} ")
             log.write("\n")
 
     # TODO move the polling and last N values into the device classes.
     # The current solution slows down the logger thread
+    # This feature is actually already present in the TANGO control system: polling
 
     def loggerThread(self, startEv=None, stopEv=None):
         logging.warning('DataLogger is waiting for start signal')
@@ -462,6 +475,8 @@ class DataLogger():
                 self._lastValues[k] = getattr(obj, attr)
             for k,v in self._attrs.items():
                 self._lastValues[k] = v.read().value
+            for k,v in self._calculated.items():
+                self._lastValues[k] = v[0](*v[1])  # TODO This need a bit of fine tuning, because currently it only gets the values once..
             time.sleep(self._logGrace)
         logging.info('DataLogger logging thread stopped')
 
@@ -498,6 +513,9 @@ class DataLogger():
                     log.write(f"{self._lastValues[k]} ")
                     #log.write(f"{getattr(obj, attr)} ")
                 for k,v in self._attrs.items():
+                    log.write(f"{self._lastValues[k]} ")
+
+                for k,v in self._calculated.items():
                     log.write(f"{self._lastValues[k]} ")
                 log.write("\n")
             #logging.warning('Logged a line')
@@ -637,6 +655,18 @@ class MainWidget(QtWidgets.QWidget):
             # self.dataLogger.addLogAttr('lcV', lVD)
         except:
             logging.error(f"Could not connect to device {lVD}")
+        try:
+            self.dataLogger.addClassAttr('force[N]', self.loadCell, 'force2')
+        except:
+            logging.error(f"Could not add force[N] to logging")
+
+        def stress(force, crossection):
+            return force/crossection
+
+        try:
+            self.dataLogger.addCalculated('stress[MPa]', stress, self.loadCell.force2, self.sample.crossection)
+        except:
+            logging.error(f"Could not add stress[MPa] to logging")
         if self.crosshead.device is not None and self.loadCell.attrProxy is not None:
             self.label_connectionStatus.setText('CONNECTION ESTABLISHED')
         self.pushButton_zeroVoltageCalibration.setEnabled(True)
@@ -691,6 +721,7 @@ class MainWidget(QtWidgets.QWidget):
 
     def restartLogging(self):
         self.dataLogger.logfile = self.lineEdit_dataLogfile.text()
+        self.label_logStatus.setText(f"Logging to {self.dataLogger.logfile}")
 
 
     def updateLCDNums(self):
@@ -700,7 +731,7 @@ class MainWidget(QtWidgets.QWidget):
             self.lcdNumber_crossheadPosition.display(f"{pos:.2f}")
             volt = self.dataLogger._lastValues['loadcellVoltage']
             self.lcdNumber_loadcellVoltage.display(f"{volt:.3f}")
-            force = self.loadCell.force2(volt)
+            force = self.loadCell.force2
             self.lcdNumber_sampleForce.display(f"{force:.1f}")
             stress = self.sample.stress(force)
             self.lcdNumber_sampleStress.display(f"{stress:.1f}")
