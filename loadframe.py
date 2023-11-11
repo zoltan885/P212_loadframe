@@ -57,7 +57,8 @@ import subprocess, shlex
 TEST = True
 if TEST:
     logging.info('Starting test Tango server')
-    testTangoServer = subprocess.Popen(shlex.split('./testserver1.py test1 -dlist p21/keithley2602b/eh3.01,p21/motor/eh3_u4.15 -nodb -host hasmhegedues -port 10000'))
+    #testTangoServer = subprocess.Popen(shlex.split('./testserver1.py test1 -dlist p21/keithley2602b/eh3.01,p21/motor/eh3_u4.15 -nodb -host hasmhegedues -port 10000'))
+    testTangoServer = subprocess.Popen(['bash','startServer.sh'])
     logging.info(f'Test Tango server started. PID: {testTangoServer.pid}')
     testServerObserver = subprocess.Popen(['xterm', './testserverWatch.py'])
     logging.info(f'Test Tango server observer started. PID: {testServerObserver.pid}')
@@ -103,6 +104,17 @@ def _getMovableSpockNames():
         pass
     return names
 
+_TangoStateColors = {'ON': '#42f545',
+                     'OFF': '#f4f7f2',
+                     'MOVING': '#427ef5',
+                     'STANDBY': '#f5f253',
+                     'FAULT': '#cc2b2b',
+                     'INIT': '#daa06d',
+                     'ALARM': '#eb962f',
+                     'DISABLE': '#f037fa',
+                     'UNKNOWN': '#808080'}
+
+
 _voltageAttrList = ['hasep21eh3:10000/p21/keithley2602b/eh3.01/MeasVoltage',
                     'hasep21eh3:10000/p21/keithley2602b/eh3.02/MeasVoltage',
     ]
@@ -111,6 +123,7 @@ if TEST:
     _voltageAttrList = ['tango://hasmhegedues:10000/p21/keithley2602b/eh3.01/voltage#dbase=no',
                         ]
 
+# TODO polling should be done from here and not from the logger
 class Loadcell():
     def __init__(self, typ='1 kN', attr=None, positiveDirection='Tension'):
         self.cell1mul = -193.913
@@ -280,6 +293,70 @@ class Sample():
         return displacementMM/self.gaugeLength
 
 
+# TODO polling should be done from here and not from the logger
+class Crosshead():
+    '''
+    dev is a the name of the device to create the device proxy
+    '''
+    def __init__(self, devname=None):
+        self._device = None
+        self._speed = None
+        self._position = None
+        if devname is not None:
+            self._dev = devname
+
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, value):
+        try:
+            self._device = PT.DeviceProxy(value)
+            logging.info('Crosshead device proxy created')
+        except Exception as e:
+            logging.error(e)
+            raise e
+
+    @property
+    def position(self):
+        return self.device.position
+
+    @property
+    def speed(self):
+        speed = self.device.slewRate / self.device.conversion
+        self._speed = speed
+        return speed
+
+    @speed.setter
+    def speed(self, value):
+        assert (value >= 0.5 and value <= 1000), 'Speed has to be in the range [0.5, 1000]'
+        self.device.slewRate = value * self.device.conversion
+        self._speed = value
+
+    @property
+    def state(self):
+        # for testing
+        if hasattr(self._device, 'st'):
+            #logging.info(f'Trying to return st: {self._device.st}')
+            return self._device.st
+        else:
+            return self._device.state()
+            #logging.info('Trying to return state')
+
+    def calibrate(self):
+        self.device.calibrate(0)
+
+    def moveto(self, pos):
+        if TEST:
+            self.device.moveto(pos)
+            return
+        self.device.position = (pos)
+
+
+
+    def jog(self):
+        pass
 
 
 
@@ -290,6 +367,7 @@ class DataLogger():
         self._logGrace = 0.05
         self._writeGrace = 0.5
         self._attrs = {}
+        self._classAttrs = {}
         self._lastValues = {}
         self._timeformat = 'both'
         if timeformat is not None:
@@ -328,7 +406,7 @@ class DataLogger():
         self._timeformat = value
 
 
-    def addLogAttr(self, name, attr):
+    def addLogAttr(self, name, attr):  # Tango attributes
         '''
         add attribute to logging
         name: the display name of the attribute
@@ -342,29 +420,46 @@ class DataLogger():
         except:
             logging.error(f'Failed to add attribute {name} : {attr} logging')
 
+    def addClassAttr(self, name, obj, attr):  # for devices having their own classes implemented
+        '''
+        add attribute of an object to logging
+        name: the display name of the attribute
+        attr: the full 'TangoPath' of the attribute
+        '''
+        self._classAttrs[name] = (obj, attr)
+        self._lastValues[name] = None
+        logging.info(f'class {obj} attribute {attr} added to logging')
+
+
     def addCalculated(self, name, query_value):
         pass
 
 
     def _writeHeader(self):
         with open(self.logfile, 'a') as log:
+            log.write('#')
             if self.timeformat == 'unix':
                 log.write("UnixTime ")
             elif self.timeformat == 'iso':
                 log.write("ISOTime ")
             elif self.timeformat == 'both':
                 log.write("ISOTime UnixTime ")
+            for k in self._classAttrs.keys():
+                log.write(f"{k} ")
             for k in self._attrs.keys():
                 log.write(f"{k} ")
             log.write("\n")
 
-    # could be split into a logger (just getting the values) and a writer (writing the last into a file)
+    # TODO move the polling and last N values into the device classes.
+    # The current solution slows down the logger thread
 
     def loggerThread(self, startEv=None, stopEv=None):
         logging.warning('DataLogger is waiting for start signal')
         startEv.wait()
         logging.info('DataLogger logging thread started')
         while not stopEv.is_set():
+            for k,(obj, attr) in self._classAttrs.items():
+                self._lastValues[k] = getattr(obj, attr)
             for k,v in self._attrs.items():
                 self._lastValues[k] = v.read().value
             time.sleep(self._logGrace)
@@ -374,6 +469,7 @@ class DataLogger():
     def writerThread(self, startEv=None, stopEv=None):
         logging.warning('DataLogger writer thread is waiting for start signal')
         noLogAttrs = 0
+        noClassLogAttrs = 0
         startEv.wait()  # how to stop it here?
         time.sleep(0.2) # grace period for loggerThread to fetch values
         logging.info('DataLogger writer thread started')
@@ -384,9 +480,10 @@ class DataLogger():
         logging.info(f'Logging to {self.logfile}')
         lastLogfile = self.logfile
         while not stopEv.is_set():
-            if noLogAttrs != len(self._attrs.keys()):  # update the attrs on the fly
+            if noLogAttrs != len(self._attrs.keys()) or noClassLogAttrs != len(self._classAttrs.keys()):  # update the attrs on the fly
                 self._writeHeader()
                 noLogAttrs = len(self._attrs.keys())
+                noClassLogAttrs = len(self._classAttrs.keys())
             if lastLogfile != self.logfile:  # updata the logfile on the fly
                 self._writeHeader()
                 lastLogfile = self.logfile
@@ -397,6 +494,9 @@ class DataLogger():
                     log.write(f"{datetime.datetime.now().isoformat()} ")
                 elif self.timeformat == 'both':
                     log.write(f"{datetime.datetime.now().isoformat()} {time.time()} ")
+                for k,(obj, attr) in self._classAttrs.items():
+                    log.write(f"{self._lastValues[k]} ")
+                    #log.write(f"{getattr(obj, attr)} ")
                 for k,v in self._attrs.items():
                     log.write(f"{self._lastValues[k]} ")
                 log.write("\n")
@@ -449,12 +549,14 @@ class MainWidget(QtWidgets.QWidget):
         # status label
         self.timerSlow.timeout.connect(self.updateRStatusLabel)
         self.timerFast.timeout.connect(self.updateLCDNums)
+        self.timerFast.timeout.connect(self.updateDevStates)
 
 
         #
         # Configuration
         #
         self.crossheadMotorDev = None
+        self.crosshead = Crosshead()
         # add voltage devices:
         self.comboBox_loadcellVoltage.addItems(_voltageAttrList)
         # add movable devices:
@@ -486,12 +588,23 @@ class MainWidget(QtWidgets.QWidget):
         self.comboBox_timestamp.currentTextChanged.connect(self.updateLogTimeStampFormat)
         self.pushButton_startNewLog.clicked.connect(self.restartLogging)
 
+
+        #
+        # Crosshead
+        #
+        self.pushButton_corssheadMove.clicked.connect(self.moveCrosshead)
+        self.doubleSpinBox_crossheadSpeed.valueChanged.connect(self.updateCrossheadSpeed)
+        self.pushButton_crossheadCalibrate.clicked.connect(self.calibrateCrosshead)
+
+
+
+
         #
         # Polling thread
         #
-        self.thread = QThread()
-        self.pool = QThreadPool.globalInstance()
-        self.measValues = {'voltage': None, 'position': None, 'speed': None}
+        # self.thread = QThread()
+        # self.pool = QThreadPool.globalInstance()
+        # self.measValues = {'voltage': None, 'position': None, 'speed': None}
 
 
 
@@ -510,22 +623,28 @@ class MainWidget(QtWidgets.QWidget):
             self.pushButton_zeroVoltageCalibration.setEnabled(True)
             return
         try:
-            self.crossheadMotorDev = PT.DeviceProxy(cMD)
-            if TEST:
-                self.dataLogger.addLogAttr('chp', cMD.rpartition("#")[0]+'/position'+'#'+cMD.rpartition("#")[2])
-            else:
-                self.dataLogger.addLogAttr('chp', cMD+'/position')
+            self.crosshead.device = cMD
+            self.dataLogger.addClassAttr('crossheadPosition', self.crosshead, 'position')
+            # if TEST:
+            #     self.dataLogger.addLogAttr('chp', cMD.rpartition("#")[0]+'/position'+'#'+cMD.rpartition("#")[2])
+            # else:
+            #     self.dataLogger.addLogAttr('chp', cMD+'/position')
         except:
             logging.error(f"Could not connect to device {cMD}")
         try:
+            self.dataLogger.addClassAttr('loadcellVoltage', self.loadCell, 'voltage')
             self.loadCell.updateVoltageAttr(lVD)
-            self.dataLogger.addLogAttr('lcV', lVD)
+            # self.dataLogger.addLogAttr('lcV', lVD)
         except:
             logging.error(f"Could not connect to device {lVD}")
-        if self.crossheadMotorDev is not None and self.loadCell.attrProxy is not None:
+        if self.crosshead.device is not None and self.loadCell.attrProxy is not None:
             self.label_connectionStatus.setText('CONNECTION ESTABLISHED')
         self.pushButton_zeroVoltageCalibration.setEnabled(True)
         self.dataLogger.startEv.set()
+        logging.info('Setting speed value in spinbox')
+        while self.crosshead is None:
+            time.sleep(0.01)
+        self.doubleSpinBox_crossheadSpeed.setValue(self.crosshead.speed)
 
 
 
@@ -577,9 +696,9 @@ class MainWidget(QtWidgets.QWidget):
     def updateLCDNums(self):
         try:
             #logging.info(f"Updating LCD: {self.dataLogger._lastValues['chp']:.2f}")
-            pos = self.dataLogger._lastValues['chp']
+            pos = self.dataLogger._lastValues['crossheadPosition']
             self.lcdNumber_crossheadPosition.display(f"{pos:.2f}")
-            volt = self.dataLogger._lastValues['lcV']
+            volt = self.dataLogger._lastValues['loadcellVoltage']
             self.lcdNumber_loadcellVoltage.display(f"{volt:.3f}")
             force = self.loadCell.force2(volt)
             self.lcdNumber_sampleForce.display(f"{force:.1f}")
@@ -587,6 +706,46 @@ class MainWidget(QtWidgets.QWidget):
             self.lcdNumber_sampleStress.display(f"{stress:.1f}")
         except:
             pass
+
+    def updateDevStates(self): # could only update it if the state changed, but then I'd need to store the last state of the ch
+        #crosshead
+        try:
+            chState = self.crosshead.state
+        except:
+            logging.error('Could not get the crosshead motor device state')
+            chState = 'UNKNOWN'
+
+        self.pushButton_crossheadState.setStyleSheet('QPushButton {background-color: %s}' % _TangoStateColors[chState])
+        self.pushButton_crossheadState.setText(str(chState))
+        if chState != 'ON':
+            self.pushButton_corssheadMove.setEnabled(False)
+            self.doubleSpinBox_crossheadSpeed.setEnabled(False)
+            self.pushButton_crossheadCalibrate.setEnabled(False)
+            self.pushButton_jogNegative.setEnabled(False)
+            self.pushButton_jogPositive.setEnabled(False)
+        if chState == 'ON':
+            if self.checkBox_crossheadEnableMove.isChecked():
+                self.pushButton_corssheadMove.setEnabled(True)
+            if self.checkBox_crossheadEnableCalibration.isChecked():
+                self.pushButton_crossheadCalibrate.setEnabled(True)
+            if self.checkBox_jogEnabled.isChecked():
+                self.pushButton_jogNegative.setEnabled(True)
+                self.pushButton_jogPositive.setEnabled(True)
+            self.doubleSpinBox_crossheadSpeed.setEnabled(True)
+
+    def moveCrosshead(self):
+        if self.crosshead.state == 'ON':
+            newPos = float(self.doubleSpinBox_crossheadMoveToPosition.value())
+            self.crosshead.moveto(newPos)
+
+    def updateCrossheadSpeed(self):
+        speed = self.doubleSpinBox_crossheadSpeed.value()
+        self.crosshead.speed = speed
+
+    def calibrateCrosshead(self):
+        self.crosshead.calibrate()
+
+
 
     def exitHandler(self):
         logging.info('exitHandler')

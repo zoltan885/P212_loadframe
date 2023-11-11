@@ -627,23 +627,65 @@
           <item row="5" column="0">
            <widget class="QWidget" name="widget_2" native="true">
             <layout class="QGridLayout" name="gridLayout_6">
-             <item row="4" column="0">
-              <widget class="QLabel" name="label_32">
+             <item row="3" column="2">
+              <widget class="QLabel" name="label_19">
                <property name="text">
-                <string>Calibrate position to zero</string>
+                <string>μm/s</string>
                </property>
               </widget>
              </item>
-             <item row="3" column="1">
-              <widget class="QDoubleSpinBox" name="doubleSpinBox_crossheadSpeed">
+             <item row="4" column="1">
+              <widget class="QCheckBox" name="checkBox_crossheadEnableCalibration">
+               <property name="text">
+                <string>Enable calibration</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="2">
+              <widget class="QLineEdit" name="lineEdit_displacementOffset">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
+               <property name="placeholderText">
+                <string>0</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QDoubleSpinBox" name="doubleSpinBox_crossheadMoveToPosition">
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+               </property>
+               <property name="buttonSymbols">
+                <enum>QAbstractSpinBox::UpDownArrows</enum>
+               </property>
+               <property name="showGroupSeparator" stdset="0">
+                <bool>false</bool>
+               </property>
                <property name="decimals">
                 <number>1</number>
                </property>
                <property name="minimum">
-                <double>1.000000000000000</double>
+                <double>-10000.000000000000000</double>
                </property>
-               <property name="value">
+               <property name="maximum">
+                <double>10000.000000000000000</double>
+               </property>
+               <property name="singleStep">
                 <double>10.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="label_32">
+               <property name="text">
+                <string>Calibrate position to zero</string>
                </property>
               </widget>
              </item>
@@ -654,6 +696,30 @@
                </property>
                <property name="text">
                 <string>Current position</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_18">
+               <property name="text">
+                <string>Speed of movement</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_27">
+               <property name="text">
+                <string>Move to absolute position</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QPushButton" name="pushButton_startDisplacemenetMeasurement">
+               <property name="enabled">
+                <bool>true</bool>
+               </property>
+               <property name="text">
+                <string>Start displacement logging</string>
                </property>
               </widget>
              </item>
@@ -685,67 +751,6 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QCheckBox" name="checkBox_crossheadEnableMove">
-               <property name="text">
-                <string>Enable move</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QDoubleSpinBox" name="doubleSpinBox_crossheadMoveToPosition">
-               <property name="decimals">
-                <number>1</number>
-               </property>
-               <property name="minimum">
-                <double>-10000.000000000000000</double>
-               </property>
-               <property name="maximum">
-                <double>10000.000000000000000</double>
-               </property>
-               <property name="singleStep">
-                <double>10.000000000000000</double>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="label_18">
-               <property name="text">
-                <string>Speed of movement</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="label_27">
-               <property name="text">
-                <string>Move to absolute position</string>
-               </property>
-              </widget>
-             </item>
-             <item row="4" column="1">
-              <widget class="QCheckBox" name="checkBox_crossheadEnableCalibration">
-               <property name="text">
-                <string>Enable calibration</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="2">
-              <widget class="QLabel" name="label_19">
-               <property name="text">
-                <string>μm/s</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="2">
-              <widget class="QPushButton" name="pushButton_corssheadMove">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>Move</string>
-               </property>
-              </widget>
-             </item>
              <item row="0" column="2">
               <widget class="QLabel" name="label_17">
                <property name="text">
@@ -763,29 +768,39 @@
                </property>
               </widget>
              </item>
-             <item row="5" column="0">
-              <widget class="QPushButton" name="pushButton_startDisplacemenetMeasurement">
+             <item row="2" column="2">
+              <widget class="QPushButton" name="pushButton_corssheadMove">
                <property name="enabled">
-                <bool>true</bool>
+                <bool>false</bool>
                </property>
                <property name="text">
-                <string>Start displacement measurement</string>
+                <string>Move</string>
                </property>
               </widget>
              </item>
-             <item row="5" column="2">
-              <widget class="QLineEdit" name="lineEdit">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
+             <item row="1" column="0">
+              <widget class="QCheckBox" name="checkBox_crossheadEnableMove">
+               <property name="text">
+                <string>Enable move</string>
                </property>
-               <property name="readOnly">
-                <bool>true</bool>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QDoubleSpinBox" name="doubleSpinBox_crossheadSpeed">
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                </property>
-               <property name="placeholderText">
-                <string>0</string>
+               <property name="decimals">
+                <number>1</number>
+               </property>
+               <property name="minimum">
+                <double>0.100000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>2000.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>666.700000000000045</double>
                </property>
               </widget>
              </item>
@@ -793,6 +808,46 @@
               <widget class="QLabel" name="label_7">
                <property name="text">
                 <string>Displacement offset [um]</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QPushButton" name="pushButton_crossheadState">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>30</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>-----</string>
+               </property>
+               <property name="checkable">
+                <bool>false</bool>
+               </property>
+               <property name="checked">
+                <bool>false</bool>
+               </property>
+               <property name="autoRepeat">
+                <bool>false</bool>
+               </property>
+               <property name="autoExclusive">
+                <bool>false</bool>
+               </property>
+               <property name="default">
+                <bool>false</bool>
+               </property>
+               <property name="flat">
+                <bool>false</bool>
                </property>
               </widget>
              </item>
@@ -816,6 +871,11 @@
                <property name="enabled">
                 <bool>false</bool>
                </property>
+               <property name="font">
+                <font>
+                 <pointsize>16</pointsize>
+                </font>
+               </property>
                <property name="text">
                 <string>+</string>
                </property>
@@ -825,6 +885,11 @@
               <widget class="QPushButton" name="pushButton_jogNegative">
                <property name="enabled">
                 <bool>false</bool>
+               </property>
+               <property name="font">
+                <font>
+                 <pointsize>16</pointsize>
+                </font>
                </property>
                <property name="text">
                 <string>-</string>
@@ -845,6 +910,9 @@
                  <horstretch>0</horstretch>
                  <verstretch>0</verstretch>
                 </sizepolicy>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                </property>
                <property name="decimals">
                 <number>1</number>
